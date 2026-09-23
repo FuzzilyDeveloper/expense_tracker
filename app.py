@@ -5,8 +5,7 @@ from datetime import date, datetime
 from typing import Any
 
 import streamlit as st
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
@@ -77,7 +76,7 @@ def category_icon(category: str) -> str:
     return {"Food": "◉", "Transport": "↗", "Home": "⌂", "Health": "+", "Shopping": "◇", "Fun": "✦"}.get(category, "•")
 
 
-def build_agent(expenses: list[dict[str, Any]], model_name: str, api_key: str) -> AgentExecutor:
+def build_agent(expenses: list[dict[str, Any]], model_name: str, api_key: str) -> Any:
     serialized = json.dumps(expenses, default=str)
 
     @tool
@@ -101,16 +100,17 @@ def build_agent(expenses: list[dict[str, Any]], model_name: str, api_key: str) -
         return serialized
 
     tools = [spending_summary, recent_transactions, all_expenses]
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", "You are Luma, a concise and thoughtful personal finance assistant. Use the provided tools for every question about the user's spending. Never invent transactions. Give practical observations and format currency in USD.\nCurrent date: {today}"),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ]
-    )
     llm = ChatOpenAI(model=model_name, temperature=0.2, api_key=api_key)
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=False, handle_parsing_errors=True)
+    return create_agent(
+        llm,
+        tools=tools,
+        system_prompt=(
+            "You are Luma, a concise and thoughtful personal finance assistant. "
+            "Use the provided tools for every question about the user's spending. "
+            "Never invent transactions. Give practical observations and format currency in USD. "
+            f"Current date: {date.today().isoformat()}"
+        ),
+    )
 
 
 def render_expenses(expenses: list[dict[str, Any]]) -> None:
@@ -183,8 +183,10 @@ with right:
             with st.chat_message("assistant"):
                 with st.spinner("Reviewing your expenses..."):
                     try:
-                        result = build_agent(expenses, model_name, api_key).invoke({"input": question, "today": date.today().isoformat()})
-                        st.write(result["output"])
+                        result = build_agent(expenses, model_name, api_key).invoke(
+                            {"messages": [{"role": "user", "content": question}]}
+                        )
+                        st.write(result["messages"][-1].content)
                     except Exception as error:
                         st.error(f"The assistant could not respond: {error}")
     else:
