@@ -1,6 +1,6 @@
-streamlit>=1.40.0
-langchain>=0.3.0,<1.0.0
-langchain-openai>=0.2.0
-pydantic>=2.12.5,<2.13.0
-pydantic-core>=2.41.5,<2.42.0
+streamlit==1.38.0
+langchain==0.2.12
+langchain-community==0.2.12
+langchain-openai==0.2.12
+pydantic==1.10.13
 xxhash==3.5.0
